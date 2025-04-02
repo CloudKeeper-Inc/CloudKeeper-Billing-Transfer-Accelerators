@@ -1,5 +1,5 @@
 resource "aws_cloudwatch_log_group" "logs" {
-  count                              = var.cloudwatchLogs ? 1 : 0
+  count             = var.cloudwatchLogs ? 1 : 0
   kms_key_id        = null
   log_group_class   = "STANDARD"
   name              = var.trail_name
@@ -28,13 +28,14 @@ resource "aws_iam_role" "cloudtrail_logging_role" {
 }
 
 resource "aws_iam_role_policy" "cloudtrail_logging_policy" {
-  count                              = var.cloudwatchLogs ? 1 : 0
+  count  = var.cloudwatchLogs ? 1 : 0
   name   = "CloudTrailLoggingPolicy"
   role   = aws_iam_role.cloudtrail_logging_role[0].name
-  policy = data.aws_iam_policy_document.cloudtrail_log_policy.json
+  policy = data.aws_iam_policy_document.cloudtrail_log_policy[0].json
 }
 
 data "aws_iam_policy_document" "cloudtrail_log_policy" {
+  count  = var.cloudwatchLogs ? 1 : 0
   statement {
     sid    = "AWSCloudTrailCreateLogStreamAdmin"
     effect = "Allow"
@@ -44,7 +45,6 @@ data "aws_iam_policy_document" "cloudtrail_log_policy" {
       "arn:aws:logs:${var.provider_region}:${var.admin_account}:log-group:${aws_cloudwatch_log_group.logs[0].name}:log-stream:*"
     ]
   }
-
   statement {
     sid    = "AWSCloudTrailPutLogEventsAdmin"
     effect = "Allow"
