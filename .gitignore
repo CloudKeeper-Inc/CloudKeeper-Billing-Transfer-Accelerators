@@ -1,0 +1,7 @@
+/*/*/.terraform*
+/*/*.json
+/*/*/*.d
+/*/*/*.tfvars
+/AWS-Cloudtrail/*/cloudtrail.tf
+/AWS-Cloudtrail/*/main.tf
+/*/__pycache__/
