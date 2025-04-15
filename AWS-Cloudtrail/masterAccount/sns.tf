@@ -7,10 +7,11 @@ resource "aws_sns_topic_policy" "default" {
   count                              = var.sns ? 1 : 0
   arn = aws_sns_topic.test[0].arn
 
-  policy = data.aws_iam_policy_document.sns_topic_policy.json
+  policy = data.aws_iam_policy_document.sns_topic_policy[0].json
 }
 
 data "aws_iam_policy_document" "sns_topic_policy" {
+  count                              = var.sns ? 1 : 0
   policy_id = "__default_policy_ID"
 
   statement {

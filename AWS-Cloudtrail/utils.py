@@ -30,78 +30,6 @@ def get_aws_cloudtrail_admin_account(org_client):
         return None
     
 
-# def get_trail_event_configurations(client, trail_name):
-
-#     try:
-#         # Describe the trail to get details
-#         trail_info = client.get_trail(Name=trail_name)
-        
-#         # Initialize configuration dictionary
-#         event_configuration = {
-#             "ManagementEvents": None,
-#             "DataEvents": None,
-#             "AdvancedEventSelectors": None,
-#             "InsightSelectors": None,
-#             "NetworkActivityEvents": False
-#         }
-        
-#         # Get Management and Data event selectors
-#         try:
-#             event_selectors_response = client.get_event_selectors(TrailName=trail_name)
-#             event_selectors = event_selectors_response.get('EventSelectors', [])
-#             advanced_event_selectors = event_selectors_response.get('AdvancedEventSelectors', [])
-
-#             # Populate configuration dictionary with retrieved selectors
-#             event_configuration["ManagementEvents"] = [event for event in event_selectors if 'ManagementEvent' in event]
-#             event_configuration["DataEvents"] = [event for event in event_selectors if 'DataResources' in event]
-#             event_configuration["AdvancedEventSelectors"] = advanced_event_selectors
-#             event_configuration["NetworkActivityEvents"] = any(
-#                 'AWS::EC2::Network' in res['ResourceType'] 
-#                 for event in event_selectors for res in event.get('DataResources', [])
-#             )
-#         except client.exceptions.ClientError as e:
-#             print(f"No event selectors found for trail '{trail_name}': {e}")
-        
-#         # Get Insight selectors configuration
-#         try:
-#             insight_selectors_response = client.get_insight_selectors(TrailName=trail_name)
-#             insight_selectors = insight_selectors_response.get('InsightSelectors', [])
-#             event_configuration["InsightSelectors"] = insight_selectors
-#         except client.exceptions.ClientError as e:
-#             print(f"No insight selectors found for trail '{trail_name}': {e}")
-
-#         print(f"Configurations for trail '{trail_name}':")
-#         print(event_configuration)
-#         return event_configuration
-
-#     except client.exceptions.TrailNotFoundException:
-#         print(f"Trail '{trail_name}' not found.")
-#     except client.exceptions.ClientError as e:
-#         print(f"An error occurred: {e}")
-
-
-# def get_trail_home_region(client, org_trail):
-#     # Initialize a boto3 CloudTrail client with a default region
-    
-#     try:
-#         # Fetch the list of trails
-#         response = client.describe_trails(trailNameList=[org_trail])
-#         print(response)
-
-#         # Iterate through the trails and find their home region
-#         for trail in response['trailList']:
-#             print(trail)
-#             trail_name = trail['Name']
-#             home_region = trail.get('HomeRegion', 'Unknown')
-
-#             # Display the trail and its home region
-#             print(f"Trail Name: {trail_name}, Home Region: {home_region}")
-#             return home_region
-
-#     except client.exceptions.ClientError as e:
-#         print(f"Error occurred: {e}")
-
-
 def list_enabled_regions():
     # Set a default region if none is set
     default_region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
@@ -206,37 +134,17 @@ def create_tfvars_file(filename, regions= None, admin_account= None, member_acco
             f.write(f'snsRegion = "{snsRegion}"\n')
 
 
-# def update_terraform_file(file_path):
-#     # Read the file content
-#     with open(file_path, 'r') as file:
-#         content = file.read()
-    
-#     content = re.sub(r'cloud_watch_logs_group_arn\s*=\s*".*"', f'cloud_watch_logs_group_arn = aws_cloudwatch_log_group.logs.arn', content)
-    
-#     content = re.sub(r'cloud_watch_logs_role_arn\s*=\s*".*"', f'cloud_watch_logs_role_arn = aws_iam_role.cloudtrail_logging_role.arn', content)
-
-#     content = re.sub(r'kms_key_id\s*=\s*".*"', f'kms_key_id = aws_kms_key.kms_key.arn', content)
-
-#     content = re.sub(r'name\s*=\s*".*"', f'name = var.trail_name', content)
-
-#     content = re.sub(r's3_bucket_name\s*=\s*".*"', f's3_bucket_name = aws_s3_bucket.bucket.name', content)
-
-#     content = re.sub(r'sns_topic_name\s*=\s*".*"', f'sns_topic_name = aws_sns_topic.test.arn', content)
-
-#     content = re.sub(r'is_organization_trail\s*=\s*".*"', f'is_organization_trail = false', content)
-
-#     # Write the updated content back to the file
-#     with open(file_path, 'w') as file:
-#         file.write(content)
-
-
 def update_terraform_file(file_path, outputs=None):
     # Read the file content
     with open(file_path, 'r') as file:
         content = file.read()
-
+    lines = content.splitlines()
     if file_path == 'masterAccount/cloudtrail.tf':
         # Define patterns and replacements for each attribute
+        if len(lines) >= 2:
+          new_lines = lines.copy()
+          new_lines[-2] = new_lines[-2] + "\n" +"depends_on = [aws_s3_bucket_policy.bucket_policy]"
+          content = '\n'.join(new_lines)
         updates = [
             (r'cloud_watch_logs_group_arn\s*=\s*".*"', 'cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.logs[0].arn}:*"'),
             (r'cloud_watch_logs_role_arn\s*=\s*".*"', 'cloud_watch_logs_role_arn = aws_iam_role.cloudtrail_logging_role[0].arn'),
@@ -244,7 +152,7 @@ def update_terraform_file(file_path, outputs=None):
             (r'\bname\s*=\s*".*?"', 'name = var.trail_name'),
             (r's3_bucket_name\s*=\s*".*"', 's3_bucket_name = aws_s3_bucket.bucket.id'),
             (r'sns_topic_name\s*=\s*".*"', 'sns_topic_name = aws_sns_topic.test[0].arn'),
-            (r'is_organization_trail\s*=\s*(true|false|"true"|"false")', 'is_organization_trail = false')
+            (r'is_organization_trail\s*=\s*(true|false|"true"|"false")', 'is_organization_trail = false'),
         ]
         
         # Update content only if patterns are found
@@ -254,8 +162,7 @@ def update_terraform_file(file_path, outputs=None):
                     # Replace only the first instance of the 'name' attribute
                     content = re.sub(pattern, replacement, content, count=1)
                 else:
-                    content = re.sub(pattern, replacement, content)
-    
+                    content = re.sub(pattern, replacement, content)   
     elif file_path == 'memberAccount/cloudtrail.tf':
         # Define patterns and replacements for each attribute
         updates = [
@@ -279,7 +186,6 @@ def update_terraform_file(file_path, outputs=None):
     # Write the updated content back to the file
     with open(file_path, 'w') as file:
         file.write(content)
-
     print(f"Updated .tf file saved to {file_path}")
 
 

@@ -190,29 +190,6 @@ data "aws_iam_policy_document" "cloudtrail_kms_policy" {
     }
   }
 
-  statement {
-    sid = "Enable cross account log decryption"
-    actions = ["kms:Decrypt", "kms:ReEncryptFrom"]
-    resources = ["*"]
-
-    principals {
-      type        = "AWS"
-      identifiers = ["*"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "kms:CallerAccount"
-      values   = ["881490128235"]
-    }
-
-    condition {
-      test     = "StringLike"
-      variable = "kms:EncryptionContext:aws:cloudtrail:arn"
-      values   = ["arn:aws:cloudtrail:*:881490128235:trail/*"]
-    }
-  }
-
   dynamic "statement" {
     for_each = var.member_account_ids
 

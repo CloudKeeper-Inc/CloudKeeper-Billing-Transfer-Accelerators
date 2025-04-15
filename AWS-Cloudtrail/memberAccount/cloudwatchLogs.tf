@@ -31,10 +31,11 @@ resource "aws_iam_role_policy" "cloudtrail_logging_policy" {
   count                              = var.cloudwatchLogs ? 1 : 0
   name   = "CloudTrailLoggingPolicy"
   role   = aws_iam_role.cloudtrail_logging_role[0].name
-  policy = data.aws_iam_policy_document.cloudtrail_log_policy.json
+  policy = data.aws_iam_policy_document.cloudtrail_log_policy[0].json
 }
 
 data "aws_iam_policy_document" "cloudtrail_log_policy" {
+  count                              = var.cloudwatchLogs ? 1 : 0
   statement {
     sid    = "AWSCloudTrailCreateLogStreamAdmin"
     effect = "Allow"
