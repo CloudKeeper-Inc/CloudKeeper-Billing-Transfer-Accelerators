@@ -131,10 +131,10 @@ if __name__ == "__main__":
         )
         print('\nRemoved Security Hub central configuration.')
 
+    root_session = boto3.Session(profile_name=str("default"))
 
     for item in aggregator_region_map:
         home_region = item.split(':')[3]
-        root_session = boto3.Session(profile_name=str("default"))
         root_client = root_session.client('securityhub', region_name=home_region)
         
         response = root_client.disable_organization_admin_account(
