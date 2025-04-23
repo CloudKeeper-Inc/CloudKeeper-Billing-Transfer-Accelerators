@@ -29,3 +29,13 @@ variable "sns" {
   type = bool
   default = false
 }
+
+variable "S3BucketName" {
+  type = string
+  default = ""
+}
+
+variable "S3KeyPrefix" {
+  type = string
+  default = ""
+}

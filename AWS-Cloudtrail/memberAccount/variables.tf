@@ -1,7 +1,3 @@
-# variable "admin_account" {
-  
-# }
-
 variable "provider_region" {
   
 }
@@ -19,4 +15,9 @@ variable "cloudwatchLogs" {
 variable "sns" {
   type = bool
   default = false
+}
+
+variable "S3KeyPrefix" {
+  type = string
+  default = ""
 }

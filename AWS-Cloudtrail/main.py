@@ -22,7 +22,7 @@ if __name__ == "__main__":
     for region in list_enabled_regions():
         cloudtrail_client = session.client('cloudtrail', region_name=region)
 
-        org_trail_name, org_trail_arn, home_region, SnsTopicName, CloudWatchLogsLogGroupArn, KmsKeyId = is_organization_trail_enabled(cloudtrail_client, region)
+        org_trail_name, org_trail_arn, home_region, SnsTopicName, CloudWatchLogsLogGroupArn, KmsKeyId, S3BucketName, S3KeyPrefix = is_organization_trail_enabled(cloudtrail_client, region)
 
         if org_trail_name:
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
             #Master Account
             update_terraform_file('masterAccount/cloudtrail.tf')
             remove_empty_attributes('masterAccount/cloudtrail.tf', 'masterAccount/cloudtrail.tf')
-            create_tfvars_file(f'masterAccount/terraform.{master_account}.{home_region}.tfvars', master_account, home_region, member_accounts, SnsTopicName, CloudWatchLogsLogGroupArn, KmsKeyId)
+            create_tfvars_file(f'masterAccount/terraform.{master_account}.{home_region}.tfvars', master_account, home_region, member_accounts, SnsTopicName, CloudWatchLogsLogGroupArn, KmsKeyId, S3KeyPrefix, S3BucketName)
             outputs = terraform_apply(master_account, home_region, 'masterAccount/.terraform/terraform.tfstate')
 
             break
@@ -44,3 +44,13 @@ if __name__ == "__main__":
         remove_empty_attributes('memberAccount/cloudtrail.tf', 'memberAccount/cloudtrail.tf')
         create_tfvars_file(f'memberAccount/terraform.{account}.{home_region}.tfvars', provider_region= home_region, CloudWatchLogsLogGroupArn=CloudWatchLogsLogGroupArn, SnsTopicName=SnsTopicName)
         terraform_apply(account, home_region, 'memberAccount/.terraform/terraform.tfstate')
+
+    print(f"A new multi-account trail has been set up.")
+
+    cloudtrail_client = session.client('cloudtrail', region_name=home_region)
+
+    stop_logging = cloudtrail_client.stop_logging(
+        Name=org_trail_arn
+    )
+
+    print(f"Logging stopped for Organization trail: {org_trail_name}")

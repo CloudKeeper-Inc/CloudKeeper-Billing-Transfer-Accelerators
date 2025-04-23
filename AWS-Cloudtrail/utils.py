@@ -76,7 +76,11 @@ def is_organization_trail_enabled(client, region):
         # Check each trail to see if it is an organization trail
         for trail in response['trailList']:
             if trail.get('IsOrganizationTrail', False):
-                # print(f"Organization trail '{trail['Name']}' is enabled in region: {region}.")
+                print(f"Organization trail '{trail['Name']}' is enabled in region: {region}.")
+                if "S3KeyPrefix" in trail:
+                    S3KeyPrefix = f"/{trail['S3KeyPrefix']}"
+                else:
+                    S3KeyPrefix = ""
                 if "SnsTopicName" in trail:
                     SnsTopicName = True
                 else: SnsTopicName = False
@@ -86,7 +90,7 @@ def is_organization_trail_enabled(client, region):
                 if "KmsKeyId" in trail:
                     KmsKeyId = True
                 else: KmsKeyId = False
-                return trail['Name'], trail['TrailARN'], trail['HomeRegion'], SnsTopicName, CloudWatchLogsLogGroupArn, KmsKeyId
+                return trail['Name'], trail['TrailARN'], trail['HomeRegion'], SnsTopicName, CloudWatchLogsLogGroupArn, KmsKeyId, trail['S3BucketName'], S3KeyPrefix
 
         # If no organization trail is found
         print(f"No organization trail is enabled in region: {region}.")
@@ -150,7 +154,6 @@ def update_terraform_file(file_path, outputs=None):
             (r'cloud_watch_logs_role_arn\s*=\s*".*"', 'cloud_watch_logs_role_arn = aws_iam_role.cloudtrail_logging_role[0].arn'),
             (r'kms_key_id\s*=\s*".*"', 'kms_key_id = aws_kms_key.kms_key[0].arn'),
             (r'\bname\s*=\s*".*?"', 'name = var.trail_name'),
-            (r's3_bucket_name\s*=\s*".*"', 's3_bucket_name = aws_s3_bucket.bucket.id'),
             (r'sns_topic_name\s*=\s*".*"', 'sns_topic_name = aws_sns_topic.test[0].arn'),
             (r'is_organization_trail\s*=\s*(true|false|"true"|"false")', 'is_organization_trail = false'),
         ]
@@ -170,7 +173,6 @@ def update_terraform_file(file_path, outputs=None):
             (r'cloud_watch_logs_role_arn\s*=\s*".*"', 'cloud_watch_logs_role_arn = aws_iam_role.cloudtrail_logging_role[0].arn'),
             (r'kms_key_id\s*=\s*".*"', f'kms_key_id = "{outputs["kms_key_id"]["value"]}"'),
             (r'\bname\s*=\s*".*?"', 'name = var.trail_name'),
-            (r's3_bucket_name\s*=\s*".*"', f's3_bucket_name = "{outputs["s3_bucket_name"]["value"]}"'),
             (r'sns_topic_name\s*=\s*".*"', 'sns_topic_name = aws_sns_topic.test[0].arn'),
             (r'is_organization_trail\s*=\s*(true|false|"true"|"false")', 'is_organization_trail = false')
         ]
@@ -205,7 +207,7 @@ def remove_empty_attributes(tf_file_path, output_file_path):
     print(f"Cleaned .tf file saved to {output_file_path}")
 
 
-def create_tfvars_file(filename, admin_account= None, provider_region= None, member_account_ids= None, SnsTopicName= None, CloudWatchLogsLogGroupArn= None, KmsKeyId= None):
+def create_tfvars_file(filename, admin_account= None, provider_region= None, member_account_ids= None, SnsTopicName= None, CloudWatchLogsLogGroupArn= None, KmsKeyId= None, S3KeyPrefix= "", S3BucketName= ""):
     with open(filename, 'w') as f:
         if admin_account:
             f.write(f'admin_account = "{admin_account}"\n\n')
@@ -219,3 +221,7 @@ def create_tfvars_file(filename, admin_account= None, provider_region= None, mem
             f.write(f'cloudwatchLogs = true\n\n')
         if KmsKeyId:
             f.write(f'kms = true\n\n')
+        if S3KeyPrefix:
+            f.write(f'S3KeyPrefix = "{S3KeyPrefix}"\n\n')
+        if S3BucketName:
+            f.write(f'S3BucketName = "{S3BucketName}"\n\n')

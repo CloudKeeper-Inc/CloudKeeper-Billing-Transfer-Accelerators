@@ -1,12 +1,3 @@
-resource "aws_s3_bucket" "bucket" {
-  bucket              = "${var.trail_name}-${var.admin_account}-bucket"
-  bucket_prefix       = null
-  force_destroy       = null
-  object_lock_enabled = false
-  tags                = {}
-  tags_all            = {}
-}
-
 data "aws_iam_policy_document" "s3_bucket_policy" {
   policy_id = "__default_policy_ID"
 
@@ -21,12 +12,12 @@ data "aws_iam_policy_document" "s3_bucket_policy" {
 
     actions = ["s3:GetBucketAcl"]
 
-    resources = ["arn:aws:s3:::${aws_s3_bucket.bucket.id}"]
+    resources = ["arn:aws:s3:::${var.S3BucketName}"]
 
     condition {
       test     = "StringLike"
       variable = "AWS:SourceArn"
-      values   = ["arn:aws:cloudtrail:*:${var.admin_account}:trail/${var.trail_name}"]
+      values   = ["arn:aws:cloudtrail:${var.provider_region}:${var.admin_account}:trail/${var.trail_name}"]
     }
   }
 
@@ -41,12 +32,12 @@ data "aws_iam_policy_document" "s3_bucket_policy" {
 
     actions = ["s3:PutObject"]
 
-    resources = ["arn:aws:s3:::${aws_s3_bucket.bucket.id}/AWSLogs/${var.admin_account}/*"]
+    resources = ["arn:aws:s3:::${var.S3BucketName}${var.S3KeyPrefix}/AWSLogs/${var.admin_account}/*"]
 
     condition {
       test     = "StringLike"
       variable = "AWS:SourceArn"
-      values   = ["arn:aws:cloudtrail:*:${var.admin_account}:trail/${var.trail_name}"]
+      values   = ["arn:aws:cloudtrail:${var.provider_region}:${var.admin_account}:trail/${var.trail_name}"]
     }
     condition {
       test     = "StringEquals"
@@ -68,12 +59,12 @@ data "aws_iam_policy_document" "s3_bucket_policy" {
 
       actions = ["s3:GetBucketAcl"]
 
-      resources = ["arn:aws:s3:::${aws_s3_bucket.bucket.id}"]
+      resources = ["arn:aws:s3:::${var.S3BucketName}"]
 
       condition {
         test     = "StringLike"
         variable = "AWS:SourceArn"
-        values   = ["arn:aws:cloudtrail:*:${statement.value}:trail/${var.trail_name}"]
+        values   = ["arn:aws:cloudtrail:${var.provider_region}:${statement.value}:trail/${var.trail_name}"]
       }
     }
   }
@@ -91,12 +82,12 @@ data "aws_iam_policy_document" "s3_bucket_policy" {
 
       actions = ["s3:PutObject"]
 
-      resources = ["arn:aws:s3:::${aws_s3_bucket.bucket.id}/AWSLogs/${statement.value}/*"]
+      resources = ["arn:aws:s3:::${var.S3BucketName}${var.S3KeyPrefix}/AWSLogs/${statement.value}/*"]
 
       condition {
         test     = "StringLike"
         variable = "AWS:SourceArn"
-        values   = ["arn:aws:cloudtrail:*:${statement.value}:trail/${var.trail_name}"]
+        values   = ["arn:aws:cloudtrail:${var.provider_region}:${statement.value}:trail/${var.trail_name}"]
       }
 
       condition {
@@ -108,8 +99,7 @@ data "aws_iam_policy_document" "s3_bucket_policy" {
   }
 }
 
-
 resource "aws_s3_bucket_policy" "bucket_policy" {
-  bucket = aws_s3_bucket.bucket.id
+  bucket = var.S3BucketName
   policy = data.aws_iam_policy_document.s3_bucket_policy.json
 }
