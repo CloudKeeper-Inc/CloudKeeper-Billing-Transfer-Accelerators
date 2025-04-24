@@ -62,9 +62,9 @@ python3 main.py
 ## How It Works
 1. **Checks AWS Organizations Macie:**
    - Fetches details of the existing organization Macie.
-2. **Enables Cross-Account Logging:**
-   - Updates member accounts to send logs to the master account.
-   - Grants required permissions to the master account's IAM role.
+2. **Updates The Bucket and Kms Policy**
+   - Updates the bucket policy of the master account where the sensitive data is exported to.
+   - Updates the KMS policy of the master account where the sensitive data is exported to.
 
 ## Troubleshooting
 - **Profile Not Found Error:** Ensure the AWS profile is correctly set up:
