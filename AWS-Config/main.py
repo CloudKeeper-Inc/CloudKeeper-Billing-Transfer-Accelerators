@@ -31,8 +31,9 @@ if __name__ == "__main__":
         aggregator_regions = get_org_aggregator(config_client)
 
         config_rules = get_all_organization_config_rules(config_client)
-        for rule in config_rules:
-            OrganizationConfigRuleList.append(f"OrgConfigRule-{rule['OrganizationConfigRuleArn'].split('/')[-1]}")
+        if config_rules != {}:
+            for rule in config_rules:
+                OrganizationConfigRuleList.append(f"OrgConfigRule-{rule['OrganizationConfigRuleArn'].split('/')[-1]}")
         create_rules_import_blocks(OrganizationConfigRuleList, f'masterAccount/import_rules.{master_account}.{region}.tf')
 
         # conformance_packs = get_all_organization_conformance_packs(config_client)
