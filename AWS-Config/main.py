@@ -23,12 +23,12 @@ if __name__ == "__main__":
             uncomment_terraform_file(f'masterAccount/generated.{master_account}.{region}.tf')
 
         OrganizationConfigRuleList = []
-        OrganizationConformancePacksList = []
+        # OrganizationConformancePacksList = []
 
         config_client = session.client('config', region_name=region)
         s3_client = session.client('s3')
 
-        aggregator_regions = get_org_aggregator(config_client)
+        aggregator_regions = get_org_aggregator(config_client, session)
 
         config_rules = get_all_organization_config_rules(config_client)
         if config_rules != {}:

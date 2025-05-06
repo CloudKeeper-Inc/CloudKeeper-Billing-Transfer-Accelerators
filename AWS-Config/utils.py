@@ -161,7 +161,7 @@ def get_regions_with_config_enabled(session):
     return enabled_regions
 
 
-def get_org_aggregator(client):
+def get_org_aggregator(client, session):
     agg_region = set()
     next_token = None
 
@@ -175,8 +175,11 @@ def get_org_aggregator(client):
         # Filter and print organization-level aggregators
         for aggregator in response['ConfigurationAggregators']:
             if 'OrganizationAggregationSource' in aggregator:
-                for region in aggregator['OrganizationAggregationSource']['AwsRegions']:
-                    agg_region.add(region)
+                if aggregator['OrganizationAggregationSource']['AllAwsRegions'] == True:
+                    agg_region = get_regions(session)
+                else:
+                    for region in aggregator['OrganizationAggregationSource']['AwsRegions']:
+                        agg_region.add(region)
 
         # Check if there's more data to fetch
         next_token = response.get('NextToken')
@@ -209,23 +212,25 @@ def create_tfvars_file(filename, regions= None, admin_account= None, member_acco
 
 
 def comment_terraform_file(file_path):
-    with open(file_path, 'r') as file:
-        content = file.read()
-    
-    commented_content = re.sub(r'^(.*)$', r'# \1', content, flags=re.MULTILINE)
-    
-    with open(file_path, 'w') as file:
-        file.write(commented_content)
+    if file_exists(file_path):
+        with open(file_path, 'r') as file:
+            content = file.read()
+        
+        commented_content = re.sub(r'^(.*)$', r'# \1', content, flags=re.MULTILINE)
+        
+        with open(file_path, 'w') as file:
+            file.write(commented_content)
 
 
 def uncomment_terraform_file(file_path):
-    with open(file_path, 'r') as file:
-        content = file.read()
-    
-    uncommented_content = re.sub(r'^#\s?', '', content, flags=re.MULTILINE)
-    
-    with open(file_path, 'w') as file:
-        file.write(uncommented_content)
+    if file_exists(file_path):
+        with open(file_path, 'r') as file:
+            content = file.read()
+        
+        uncommented_content = re.sub(r'^#\s?', '', content, flags=re.MULTILINE)
+        
+        with open(file_path, 'w') as file:
+            file.write(uncommented_content)
 
 
 def find_files_with_pattern(directory, account_number, region):
