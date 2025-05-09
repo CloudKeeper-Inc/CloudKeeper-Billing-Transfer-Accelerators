@@ -3,7 +3,7 @@ from utils import *
 
 org_client = boto3.client("organizations", region_name="us-east-1")
 account_client = boto3.client("account")
-macie_client_1 = boto3.client("macie2", region_name = "us-east-1"))
+macie_client_1 = boto3.client("macie2", region_name = "us-east-1")
 macie_enabled_regions = []
 
 account_ids, accId_email_map = get_account_list(org_client)
