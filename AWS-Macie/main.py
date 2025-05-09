@@ -3,16 +3,15 @@ from utils import *
 
 org_client = boto3.client("organizations", region_name="us-east-1")
 account_client = boto3.client("account")
-macie_client_1 = boto3.client("macie2", region_name = "us-east-1")
+macie_client_1 = boto3.client("macie2", region_name="us-east-1")
 macie_enabled_regions = []
 
 account_ids, accId_email_map = get_account_list(org_client)
 
 if __name__ == "__main__":
-    master_account = check_delegated_admin_for_macie(org_client)
-    
+    master_account = check_delegated_admin_for_macie(org_client)    
     if not master_account:
-        master_account = get_aws_macie_admin_account(org_client)
+        master_account = get_aws_macie_admin_account(org_client)       
     member_accounts = account_ids
     member_accounts.remove(master_account)
     
@@ -81,19 +80,18 @@ if __name__ == "__main__":
 
     print("------------------------------------------------------------------------------------------------------------------------------------------- \n")
     
-    disable_organization_macie(master_account)
-
+    disable_organization_macie(master_account)        
     for region in macie_enabled_regions:
         macie_client = session.client("macie2", region_name=region)
-        
         for accou, ema in zip(member_accounts, accId_email_map):
             acc = accou
             email = ema["Email"]
-            aws_create_member(acc, email, macie_client)
+            
+            aws_create_member(acc, email, macie_client, region)
 
         create_invite(member_accounts, macie_client)
-        policy = {}
-
+    policy = {}    
+    for region in macie_enabled_regions:
         for accou, ema in zip(member_accounts, accId_email_map):
             acc = accou
             email = ema["Email"]

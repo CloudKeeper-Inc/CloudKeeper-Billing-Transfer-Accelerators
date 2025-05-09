@@ -66,7 +66,7 @@ def check_delegated_admin_for_macie(org_client):
 
 
 def disable_organization_macie(master_account):
-    client = boto3.client("macie2")
+    client = boto3.client("macie2", region_name="us-east-1")
     org = boto3.client("organizations")
     try:
         response = org.deregister_delegated_administrator(
