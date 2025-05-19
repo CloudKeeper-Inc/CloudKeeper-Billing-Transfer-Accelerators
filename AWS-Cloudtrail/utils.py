@@ -81,16 +81,19 @@ def is_organization_trail_enabled(client, region):
                     S3KeyPrefix = f"/{trail['S3KeyPrefix']}"
                 else:
                     S3KeyPrefix = ""
-                if "SnsTopicName" in trail:
-                    SnsTopicName = True
-                else: SnsTopicName = False
+                if "SnsTopic" in trail:
+                    SnsTopic = True
+                    SnsTopicName = trail['SnsTopic']
+                else: 
+                    SnsTopic = False
+                    SnsTopicName = ""
                 if "CloudWatchLogsLogGroupArn" in trail:
                     CloudWatchLogsLogGroupArn = True
                 else: CloudWatchLogsLogGroupArn = False
                 if "KmsKeyId" in trail:
                     KmsKeyId = True
                 else: KmsKeyId = False
-                return trail['Name'], trail['TrailARN'], trail['HomeRegion'], SnsTopicName, CloudWatchLogsLogGroupArn, KmsKeyId, trail['S3BucketName'], S3KeyPrefix
+                return trail['Name'], trail['TrailARN'], trail['HomeRegion'], SnsTopic, CloudWatchLogsLogGroupArn, KmsKeyId, trail['S3BucketName'], S3KeyPrefix, SnsTopicName
 
         # If no organization trail is found
         print(f"No organization trail is enabled in region: {region}.")
@@ -118,24 +121,24 @@ import {{
     print(f"Import blocks have been written to {output_file}")
     
 
-def create_tfvars_file(filename, regions= None, admin_account= None, member_account_ids= None, bucket_name= None, sns_topic= None, provider_region= None, bucketRegion= None, snsRegion= None):
-    with open(filename, 'w') as f:
-        if regions:
-            f.write(f'regions = {json.dumps(list(regions))}\n\n')
-        if admin_account:
-            f.write(f'admin_account = "{admin_account}"\n\n')
-        if member_account_ids:
-            f.write(f'member_account_ids = {json.dumps(member_account_ids)}\n\n')
-        if bucket_name:
-            f.write(f'bucket_name = "{bucket_name}"\n\n')
-        if sns_topic:
-            f.write(f'sns_topic = "{sns_topic}"\n\n')
-        if provider_region:
-            f.write(f'provider_region = "{provider_region}"\n\n')
-        if bucketRegion:
-            f.write(f'bucketRegion = "{bucketRegion}"\n\n')
-        if snsRegion:
-            f.write(f'snsRegion = "{snsRegion}"\n')
+# def create_tfvars_file(filename, regions= None, admin_account= None, member_account_ids= None, bucket_name= None, sns_topic= None, provider_region= None, bucketRegion= None, snsRegion= None):
+#     with open(filename, 'w') as f:
+#         if regions:
+#             f.write(f'regions = {json.dumps(list(regions))}\n\n')
+#         if admin_account:
+#             f.write(f'admin_account = "{admin_account}"\n\n')
+#         if member_account_ids:
+#             f.write(f'member_account_ids = {json.dumps(member_account_ids)}\n\n')
+#         if bucket_name:
+#             f.write(f'bucket_name = "{bucket_name}"\n\n')
+#         if sns_topic:
+#             f.write(f'sns_topic = "{sns_topic}"\n\n')
+#         if provider_region:
+#             f.write(f'provider_region = "{provider_region}"\n\n')
+#         if bucketRegion:
+#             f.write(f'bucketRegion = "{bucketRegion}"\n\n')
+#         if snsRegion:
+#             f.write(f'snsRegion = "{snsRegion}"\n')
 
 
 def update_terraform_file(file_path, outputs=None):
@@ -147,14 +150,14 @@ def update_terraform_file(file_path, outputs=None):
         # Define patterns and replacements for each attribute
         if len(lines) >= 2:
           new_lines = lines.copy()
-          new_lines[-2] = new_lines[-2] + "\n" +"depends_on = [aws_s3_bucket_policy.bucket_policy]"
+          new_lines[-2] = new_lines[-2] + "\n" +"depends_on = [aws_s3_bucket_policy.bucket_policy, aws_sns_topic_policy.default]"
           content = '\n'.join(new_lines)
         updates = [
             (r'cloud_watch_logs_group_arn\s*=\s*".*"', 'cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.logs[0].arn}:*"'),
             (r'cloud_watch_logs_role_arn\s*=\s*".*"', 'cloud_watch_logs_role_arn = aws_iam_role.cloudtrail_logging_role[0].arn'),
             (r'kms_key_id\s*=\s*".*"', 'kms_key_id = aws_kms_key.kms_key[0].arn'),
             (r'\bname\s*=\s*".*?"', 'name = var.trail_name'),
-            (r'sns_topic_name\s*=\s*".*"', 'sns_topic_name = aws_sns_topic.test[0].arn'),
+            # (r'sns_topic_name\s*=\s*".*"', 'sns_topic_name = aws_sns_topic.test[0].arn'),
             (r'is_organization_trail\s*=\s*(true|false|"true"|"false")', 'is_organization_trail = false'),
         ]
         
@@ -173,7 +176,7 @@ def update_terraform_file(file_path, outputs=None):
             (r'cloud_watch_logs_role_arn\s*=\s*".*"', 'cloud_watch_logs_role_arn = aws_iam_role.cloudtrail_logging_role[0].arn'),
             (r'kms_key_id\s*=\s*".*"', f'kms_key_id = "{outputs["kms_key_id"]["value"]}"'),
             (r'\bname\s*=\s*".*?"', 'name = var.trail_name'),
-            (r'sns_topic_name\s*=\s*".*"', 'sns_topic_name = aws_sns_topic.test[0].arn'),
+            # (r'sns_topic_name\s*=\s*".*"', 'sns_topic_name = aws_sns_topic.test[0].arn'),
             (r'is_organization_trail\s*=\s*(true|false|"true"|"false")', 'is_organization_trail = false')
         ]
         # Update content only if patterns are found
@@ -207,7 +210,7 @@ def remove_empty_attributes(tf_file_path, output_file_path):
     print(f"Cleaned .tf file saved to {output_file_path}")
 
 
-def create_tfvars_file(filename, admin_account= None, provider_region= None, member_account_ids= None, SnsTopicName= None, CloudWatchLogsLogGroupArn= None, KmsKeyId= None, S3KeyPrefix= "", S3BucketName= ""):
+def create_tfvars_file(filename, admin_account= None, provider_region= None, member_account_ids= None, SnsTopic= None, CloudWatchLogsLogGroupArn= None, KmsKeyId= None, S3KeyPrefix= "", S3BucketName= "", SnsTopicName= ""):
     with open(filename, 'w') as f:
         if admin_account:
             f.write(f'admin_account = "{admin_account}"\n\n')
@@ -215,7 +218,7 @@ def create_tfvars_file(filename, admin_account= None, provider_region= None, mem
             f.write(f'member_account_ids = {json.dumps(member_account_ids)}\n\n')
         if provider_region:
             f.write(f'provider_region = "{provider_region}"\n\n')
-        if SnsTopicName:
+        if SnsTopic:
             f.write(f'sns = true\n\n')
         if CloudWatchLogsLogGroupArn:
             f.write(f'cloudwatchLogs = true\n\n')
@@ -225,3 +228,5 @@ def create_tfvars_file(filename, admin_account= None, provider_region= None, mem
             f.write(f'S3KeyPrefix = "{S3KeyPrefix}"\n\n')
         if S3BucketName:
             f.write(f'S3BucketName = "{S3BucketName}"\n\n')
+        if SnsTopicName:
+            f.write(f'SnsTopicName = "{SnsTopicName}"\n\n')

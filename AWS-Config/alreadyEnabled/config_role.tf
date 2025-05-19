@@ -62,3 +62,9 @@ data "aws_iam_policy_document" "p" {
     }
   }
 }
+
+resource "aws_iam_role_policy_attachment" "p" {
+  count = data.external.role_exists.result.exists == "false" ? 1 : 0
+  role   = aws_iam_role.my_config_role[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWS_ConfigRole"
+}

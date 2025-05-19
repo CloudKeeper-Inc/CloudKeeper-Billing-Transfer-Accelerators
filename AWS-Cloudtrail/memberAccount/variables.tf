@@ -21,3 +21,8 @@ variable "S3KeyPrefix" {
   type = string
   default = ""
 }
+
+variable "SnsTopicName" {
+  type = string
+  default = ""
+}

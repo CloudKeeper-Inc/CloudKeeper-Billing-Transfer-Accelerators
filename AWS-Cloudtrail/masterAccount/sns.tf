@@ -62,4 +62,29 @@ data "aws_iam_policy_document" "sns_topic_policy" {
       values   = ["arn:aws:cloudtrail:*:${var.admin_account}:trail/${var.trail_name}"]
     }
   }
+
+  dynamic "statement" {
+    for_each = var.member_account_ids
+    content {
+      sid    = "AWSCloudTrailWriteMember${statement.value}"
+      effect = "Allow"
+
+      principals {
+        type        = "Service"
+        identifiers = ["cloudtrail.amazonaws.com"]
+      }
+
+      actions = ["SNS:Publish"]
+
+      resources = ["arn:aws:sns:${var.provider_region}:${var.admin_account}:${var.sns}"]
+
+      condition {
+        test     = "StringLike"
+        variable = "AWS:SourceArn"
+        values   = ["arn:aws:cloudtrail:${var.provider_region}:${statement.value}:trail/${var.trail_name}"]
+      }
+
+    }
+  }
+
 }

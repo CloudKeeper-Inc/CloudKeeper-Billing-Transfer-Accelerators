@@ -28,13 +28,13 @@ if __name__ == "__main__":
         config_client = session.client('config', region_name=region)
         s3_client = session.client('s3')
 
-        aggregator_regions = get_org_aggregator(config_client)
+        aggregator_regions = get_org_aggregator(config_client, session)
 
         config_rules = get_all_organization_config_rules(config_client)
         if config_rules != {}:
             for rule in config_rules:
                 OrganizationConfigRuleList.append(f"OrgConfigRule-{rule['OrganizationConfigRuleArn'].split('/')[-1]}")
-        create_rules_import_blocks(OrganizationConfigRuleList, f'masterAccount/import_rules.{master_account}.{region}.tf')
+            create_rules_import_blocks(OrganizationConfigRuleList, f'masterAccount/import_rules.{master_account}.{region}.tf')
 
         # conformance_packs = get_all_organization_conformance_packs(config_client)
         # for pack in conformance_packs:

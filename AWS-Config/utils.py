@@ -161,7 +161,7 @@ def get_regions_with_config_enabled(session):
     return enabled_regions
 
 
-def get_org_aggregator(client):
+def get_org_aggregator(client, session):
     agg_region = set()
     next_token = None
 
@@ -175,8 +175,11 @@ def get_org_aggregator(client):
         # Filter and print organization-level aggregators
         for aggregator in response['ConfigurationAggregators']:
             if 'OrganizationAggregationSource' in aggregator:
-                for region in aggregator['OrganizationAggregationSource']['AwsRegions']:
-                    agg_region.add(region)
+                if aggregator['OrganizationAggregationSource']['AllAwsRegions'] == True:
+                    agg_region = get_regions(session)
+                else:
+                    for region in aggregator['OrganizationAggregationSource']['AwsRegions']:
+                        agg_region.add(region)
 
         # Check if there's more data to fetch
         next_token = response.get('NextToken')
