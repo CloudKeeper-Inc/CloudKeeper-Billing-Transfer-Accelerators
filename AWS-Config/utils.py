@@ -212,23 +212,25 @@ def create_tfvars_file(filename, regions= None, admin_account= None, member_acco
 
 
 def comment_terraform_file(file_path):
-    with open(file_path, 'r') as file:
-        content = file.read()
-    
-    commented_content = re.sub(r'^(.*)$', r'# \1', content, flags=re.MULTILINE)
-    
-    with open(file_path, 'w') as file:
-        file.write(commented_content)
+    if file_exists(file_path):
+        with open(file_path, 'r') as file:
+            content = file.read()
+        
+        commented_content = re.sub(r'^(.*)$', r'# \1', content, flags=re.MULTILINE)
+        
+        with open(file_path, 'w') as file:
+            file.write(commented_content)
 
 
 def uncomment_terraform_file(file_path):
-    with open(file_path, 'r') as file:
-        content = file.read()
-    
-    uncommented_content = re.sub(r'^#\s?', '', content, flags=re.MULTILINE)
-    
-    with open(file_path, 'w') as file:
-        file.write(uncommented_content)
+    if file_exists(file_path):
+        with open(file_path, 'r') as file:
+            content = file.read()
+        
+        uncommented_content = re.sub(r'^#\s?', '', content, flags=re.MULTILINE)
+        
+        with open(file_path, 'w') as file:
+            file.write(uncommented_content)
 
 
 def find_files_with_pattern(directory, account_number, region):
