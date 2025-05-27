@@ -86,7 +86,8 @@ if __name__ == "__main__":
         for accou, ema in zip(member_accounts, accId_email_map):
             acc = accou
             email = ema["Email"]
-            
+            disassosciate_members(macie_client, acc)
+            delete_members(macie_client, acc)
             aws_create_member(acc, email, macie_client)
 
         create_invite(member_accounts, macie_client)
