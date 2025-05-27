@@ -87,7 +87,7 @@ if __name__ == "__main__":
             acc = accou
             email = ema["Email"]
             
-            aws_create_member(acc, email, macie_client, region)
+            aws_create_member(acc, email, macie_client)
 
         create_invite(member_accounts, macie_client)
     policy = {}    
