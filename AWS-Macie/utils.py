@@ -92,6 +92,21 @@ def aws_create_member(member_account, Email, client):
     except Exception as e:
         print(f"Error in creating member: {e}")
 
+def disassosciate_members(client, acc):
+    try: 
+        response = client.disassociate_member(id = acc)
+        return response
+    except Exception as e:
+        print(f"This Account id is already dissassociated:{e}" + acc)
+
+def delete_members(client, acc):
+    try:
+        response = client.delete_member(id = acc)
+        print("Account Deleted id:" + acc)
+        return response 
+    except Exception as e:
+        print(f"This Account id was not a member:{e}" + acc)           
+ 
 
 def create_invite(member_accounts, client):
     try:
