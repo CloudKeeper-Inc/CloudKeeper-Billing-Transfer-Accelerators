@@ -7,7 +7,7 @@ output "cloud_watch_logs_group_arn" {
 }
 
 output "sns_topic_name" {
-  value = {for k, v in aws_sns_topic.test: k => v.arn}
+  value = var.SnsTopicName
 }
 
 output "kms_key_id" {

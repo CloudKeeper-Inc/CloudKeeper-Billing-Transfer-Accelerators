@@ -1,17 +1,17 @@
-resource "aws_sns_topic" "test" {
-  count                              = var.sns ? 1 : 0
-  name = "${var.trail_name}-sns"
-}
+# resource "aws_sns_topic" "test" {
+#   count                              = var.sns ? 1 : 0
+#   name = "${var.trail_name}-sns"
+# }
 
 resource "aws_sns_topic_policy" "default" {
-  count                              = var.sns ? 1 : 0
-  arn = aws_sns_topic.test[0].arn
+  # count                              = var.sns ? 1 : 0
+  arn = var.SnsTopicName
 
-  policy = data.aws_iam_policy_document.sns_topic_policy[0].json
+  policy = data.aws_iam_policy_document.sns_topic_policy.json
 }
 
 data "aws_iam_policy_document" "sns_topic_policy" {
-  count                              = var.sns ? 1 : 0
+  # count                              = var.sns ? 1 : 0
   policy_id = "__default_policy_ID"
 
   statement {
@@ -34,7 +34,7 @@ data "aws_iam_policy_document" "sns_topic_policy" {
       "SNS:Publish"
     ]
 
-    resources = [aws_sns_topic.test[0].arn]
+    resources = [var.SnsTopicName]
 
     condition {
       test     = "StringEquals"
@@ -54,12 +54,12 @@ data "aws_iam_policy_document" "sns_topic_policy" {
 
     actions = ["SNS:Publish"]
 
-    resources = [aws_sns_topic.test[0].arn]
+    resources = [var.SnsTopicName]
 
     condition {
-      test     = "StringLike"
-      variable = "AWS:SourceArn"
-      values   = ["arn:aws:cloudtrail:*:${var.admin_account}:trail/${var.trail_name}"]
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = ["${var.admin_account}"]
     }
   }
 
@@ -76,12 +76,12 @@ data "aws_iam_policy_document" "sns_topic_policy" {
 
       actions = ["SNS:Publish"]
 
-      resources = ["arn:aws:sns:${var.provider_region}:${var.admin_account}:${var.sns}"]
+      resources = ["${var.SnsTopicName}"]
 
       condition {
-        test     = "StringLike"
-        variable = "AWS:SourceArn"
-        values   = ["arn:aws:cloudtrail:${var.provider_region}:${statement.value}:trail/${var.trail_name}"]
+        test     = "StringEquals"
+        variable = "aws:SourceAccount"
+        values   = ["${statement.value}"]
       }
 
     }

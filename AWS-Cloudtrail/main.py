@@ -15,6 +15,7 @@ if __name__ == "__main__":
 
     member_accounts = account_ids
     member_accounts.remove(master_account)
+    member_accounts.remove('992313771266')
     print("\nMember Accounts:", member_accounts)
 
     session = boto3.Session(profile_name=str(master_account))

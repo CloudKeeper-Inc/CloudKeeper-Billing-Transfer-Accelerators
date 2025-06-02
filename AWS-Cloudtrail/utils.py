@@ -72,6 +72,7 @@ def is_organization_trail_enabled(client, region):
     try:
         # Fetch the list of trails
         response = client.describe_trails()
+        print(response)
         
         # Check each trail to see if it is an organization trail
         for trail in response['trailList']:
@@ -81,9 +82,9 @@ def is_organization_trail_enabled(client, region):
                     S3KeyPrefix = f"/{trail['S3KeyPrefix']}"
                 else:
                     S3KeyPrefix = ""
-                if "SnsTopic" in trail:
+                if "SnsTopicName" in trail:
                     SnsTopic = True
-                    SnsTopicName = trail['SnsTopic']
+                    SnsTopicName = trail['SnsTopicName']
                 else: 
                     SnsTopic = False
                     SnsTopicName = ""
