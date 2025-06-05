@@ -66,8 +66,8 @@ def check_delegated_admin_for_macie(org_client):
 
 
 def disable_organization_macie(master_account):
-    client = boto3.client("macie2")
-    org = boto3.client("organizations")
+    client = boto3.client("macie2", region_name="us-east-1")
+    org = boto3.client("organizations", region_name="us-east-1")
     try:
         response = org.deregister_delegated_administrator(
             AccountId=master_account, ServicePrincipal="macie.amazonaws.com"
