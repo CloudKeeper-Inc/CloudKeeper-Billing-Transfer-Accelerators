@@ -80,6 +80,7 @@ if __name__ == "__main__":
     principal = [] 
     for element in map_principals:
         try:
+            print(map_principals)
             new_arn = element["arn"]
             principal = element["principals"]
             
