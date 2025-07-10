@@ -62,13 +62,13 @@ python3 main.py
 ## How It Works
 1. **Checks AWS Organizations Cloud Formation StackSet:**
    - Fetches details of the existing organization Cloud Formation StackSet.
-2. **Copy the Resource Share's info**
+2. **Copy the StackSet's info**
    - Creates a new Stack Set and deletes the old one 
    - Associate the Stack Instances to the new tack Set. 
 
 ## Limitations
-### Some Services can only be shared by the AWS Organization this project omits those services if they are present in the resource share
-*. **All the stackset will be made in the management account because all the servive managed stackset are made by only two accounts either management or delegated admin account hence all the stackset will be made in management or root account**
+### Stackset that are serviced managed can be made by Two Accounts only delegated admin and mamangement account
+*. **All the stackset will be made in the management account because all the service managed stackset are made by only two accounts either management or delegated admin account hence all the stackset will be made in management or root account**
 
 
 
