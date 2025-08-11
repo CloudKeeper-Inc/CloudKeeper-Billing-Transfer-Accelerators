@@ -29,7 +29,6 @@ def get_aws_cloudtrail_admin_account(org_client):
         print(f"An error occurred: {e}")
         return None
 
-
 def get_details(session,region):
     """Get the details of the AWS Cloudtrail organization trail."""
     client = session.client('cloudtrail', region_name=region)
@@ -37,8 +36,8 @@ def get_details(session,region):
         # List the organization trails
         response = client.list_trails()
         if response['Trails']:
-            for rail in response['Trails']:
-               tr = client.get_trail(Name=rail['Name'])
+            for trail in response['Trails']:  # Fixed: 'rail' -> 'trail'
+               tr = client.get_trail(Name=trail['Name'])  # Fixed: 'rail' -> 'trail'
                if tr['Trail']['IsOrganizationTrail']:
                     if "S3KeyPrefix" in tr['Trail']:
                         S3KeyPrefix = f"/{tr['Trail']['S3KeyPrefix']}"
@@ -64,9 +63,9 @@ def get_details(session,region):
                         KmsKeyId = tr['Trail']['KmsKeyId']
                     else: KmsKeyId = ''
                     
-                    trail = {
+                    trail_details = {  # Fixed: 'trail' -> 'trail_details' to avoid confusion
                         'Name': 'CloudTrail-ck',
-                        'org_trail_name':rail['Name'],
+                        'org_trail_name': trail['Name'],  # Fixed: 'rail' -> 'trail'
                         'HomeRegion': tr['Trail']['HomeRegion'],
                         'S3BucketName': tr['Trail']['S3BucketName'],
                         'S3KeyPrefix': S3KeyPrefix,
@@ -83,9 +82,8 @@ def get_details(session,region):
                         'IncludeGlobalServiceEvents': tr['Trail']['IncludeGlobalServiceEvents'],
                         'HasCustomEventSelectors': tr['Trail']['HasCustomEventSelectors'],
                         'HasInsightSelectors': tr['Trail']['IsOrganizationTrail']
-                        
                     }
-                    return trail
+                    return trail_details
         else:
             print("No organization trails found.")
             return None
@@ -93,7 +91,6 @@ def get_details(session,region):
     except client.exceptions.ClientError as e:
         print(f"An error occurred: {e}")
         return None
-
 def list_enabled_regions():
     # Set a default region if none is set
     default_region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
@@ -299,7 +296,8 @@ def setup_role_logging(
             "error": str(e),
             "resources": created_resources
         }
-def create_s3_cloudtrail_bucket_policy(s3_bucket_name,provider_region,trail_name,s3_key_prefix,member_account_ids,apply_policy,session): 
+
+def create_s3_cloudtrail_bucket_policy(s3_bucket_name, admin_account, provider_region, trail_name, s3_key_prefix, member_account_ids, apply_policy, session): 
     """
     Creates and optionally applies an S3 bucket policy for CloudTrail logging.
     
@@ -311,13 +309,17 @@ def create_s3_cloudtrail_bucket_policy(s3_bucket_name,provider_region,trail_name
         s3_key_prefix: S3 key prefix for CloudTrail logs (optional)
         member_account_ids: List of member account IDs (optional)
         apply_policy: Whether to apply the policy to the bucket (default: True)
+        session: boto3 session object
     
     Returns:
         dict: The generated IAM policy document
     """
+    # Create a copy to avoid modifying the original list
+    member_accounts = member_account_ids.copy() if member_account_ids else []
     
-    if member_account_ids is None:
-        member_account_ids = []
+    # Remove admin account if it exists in member accounts list
+    if admin_account in member_accounts:
+        member_accounts.remove(admin_account)
     
     # Initialize the policy document
     policy_document = {
@@ -326,8 +328,43 @@ def create_s3_cloudtrail_bucket_policy(s3_bucket_name,provider_region,trail_name
         "Statement": []
     }
     
-    # Member accounts ACL check statements (dynamic)
-    for member_account in member_account_ids:
+    # Admin account ACL check statement
+    admin_acl_statement = {
+        "Sid": f"AWSCloudTrailAclCheckAdmin{admin_account}",
+        "Effect": "Allow",
+        "Principal": {
+            "Service": "cloudtrail.amazonaws.com"
+        },
+        "Action": "s3:GetBucketAcl",
+        "Resource": f"arn:aws:s3:::{s3_bucket_name}",
+        "Condition": {
+            "StringEquals": {
+                "aws:SourceArn": f"arn:aws:cloudtrail:{provider_region}:{admin_account}:trail/{trail_name}"
+            }
+        }
+    }
+    policy_document["Statement"].append(admin_acl_statement)
+    
+    # Admin account write statement
+    admin_write_statement = {
+        "Sid": f"AWSCloudTrailWriteAdmin{admin_account}",
+        "Effect": "Allow",
+        "Principal": {
+            "Service": "cloudtrail.amazonaws.com"
+        },
+        "Action": "s3:PutObject",
+        "Resource": f"arn:aws:s3:::{s3_bucket_name}{s3_key_prefix}/AWSLogs/{admin_account}/*",
+        "Condition": {
+            "StringEquals": {
+                "aws:SourceArn": f"arn:aws:cloudtrail:{provider_region}:{admin_account}:trail/{trail_name}",
+                "s3:x-amz-acl": "bucket-owner-full-control"
+            }
+        }
+    }
+    policy_document["Statement"].append(admin_write_statement)
+    
+    # Member accounts ACL check and write statements (dynamic)
+    for member_account in member_accounts:
         member_acl_statement = {
             "Sid": f"AWSCloudTrailAclCheckMember{member_account}",
             "Effect": "Allow",
@@ -342,6 +379,7 @@ def create_s3_cloudtrail_bucket_policy(s3_bucket_name,provider_region,trail_name
                 }
             }
         }
+        
         member_write_statement = {
             "Sid": f"AWSCloudTrailWriteMember{member_account}",
             "Effect": "Allow",
@@ -357,14 +395,26 @@ def create_s3_cloudtrail_bucket_policy(s3_bucket_name,provider_region,trail_name
                 }
             }
         }
+        
         policy_document["Statement"].append(member_acl_statement)
         policy_document["Statement"].append(member_write_statement)
+    
+    # Optional: Add a statement to allow CloudTrail service to check bucket existence
+    bucket_existence_statement = {
+        "Sid": "AWSCloudTrailBucketExistenceCheck",
+        "Effect": "Allow",
+        "Principal": {
+            "Service": "cloudtrail.amazonaws.com"
+        },
+        "Action": "s3:ListBucket",
+        "Resource": f"arn:aws:s3:::{s3_bucket_name}"
+    }
+    policy_document["Statement"].append(bucket_existence_statement)
     
     # Apply the policy to the bucket if requested
     if apply_policy:
         try:
             s3_client = session.client('s3', region_name=provider_region)
-            # s3_client = boto3.client('s3')
             s3_client.put_bucket_policy(
                 Bucket=s3_bucket_name,
                 Policy=json.dumps(policy_document)
@@ -375,7 +425,6 @@ def create_s3_cloudtrail_bucket_policy(s3_bucket_name,provider_region,trail_name
             raise
     
     return policy_document
-
 
 
 def create_sns_topic_policy(

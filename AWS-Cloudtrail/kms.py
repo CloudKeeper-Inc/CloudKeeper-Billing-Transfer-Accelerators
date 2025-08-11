@@ -1,6 +1,7 @@
-import boto3
-import os, re, json
-from typing import List, Dict, Any
+import json
+from typing import List, Dict, Any, Optional
+
+
 def generate_cloudtrail_kms_policy(
     admin_account: str,
     member_account_ids: List[str],
@@ -8,22 +9,24 @@ def generate_cloudtrail_kms_policy(
     provider_region: str
 ) -> Dict[str, Any]:
     """
-    Generate a KMS policy document for CloudTrail encryption across multiple AWS accounts.
+    Generate a KMS key policy for CloudTrail encryption across multiple AWS accounts.
     
     Args:
-        admin_account (str): The admin/master account ID
-        member_account_ids (List[str]): List of member account IDs
-        trail_name (str): Name of the CloudTrail trail
-        provider_region (str): AWS region where resources are deployed
+        admin_account: The admin AWS account ID
+        member_account_ids: List of member AWS account IDs
+        trail_name: Name of the CloudTrail trail
+        provider_region: AWS region where resources are deployed
     
     Returns:
-        Dict[str, Any]: KMS policy document as a dictionary
+        Dictionary containing the KMS key policy
     """
+    member_account_ids.remove(admin_account)  # Ensure admin account is not in member accounts
     
-    statements = []
+    # Initialize policy statements
+    policy_statements = []
     
     # Enable IAM User Permissions for admin account
-    statements.append({
+    policy_statements.append({
         "Sid": "Enable IAM User Permissions",
         "Effect": "Allow",
         "Principal": {
@@ -33,9 +36,9 @@ def generate_cloudtrail_kms_policy(
         "Resource": "*"
     })
     
-    # Enable IAM User Permissions for member accounts
+    # Enable IAM User Permissions for each member account
     for account_id in member_account_ids:
-        statements.append({
+        policy_statements.append({
             "Sid": f"Enable IAM User Permissions {account_id}",
             "Effect": "Allow",
             "Principal": {
@@ -46,13 +49,17 @@ def generate_cloudtrail_kms_policy(
         })
     
     # Allow CloudTrail to encrypt logs for admin account
-    statements.append({
+    policy_statements.append({
         "Sid": "Allow CloudTrail to encrypt logs",
         "Effect": "Allow",
         "Principal": {
             "Service": "cloudtrail.amazonaws.com"
         },
-        "Action": "kms:GenerateDataKey*",
+			"Action": [
+				"kms:GenerateDataKey*",
+				"kms:CreateGrant",
+				"kms:DescribeKey"
+			],
         "Resource": "*",
         "Condition": {
             "StringLike": {
@@ -62,15 +69,19 @@ def generate_cloudtrail_kms_policy(
         }
     })
     
-    # Allow CloudTrail to encrypt logs for member accounts
+    # Allow CloudTrail to encrypt logs for each member account
     for account_id in member_account_ids:
-        statements.append({
+        policy_statements.append({
             "Sid": f"Allow CloudTrail to encrypt logs {account_id}",
             "Effect": "Allow",
             "Principal": {
                 "Service": "cloudtrail.amazonaws.com"
             },
-            "Action": "kms:GenerateDataKey*",
+			"Action": [
+				"kms:GenerateDataKey*",
+				"kms:CreateGrant",
+				"kms:DescribeKey"
+			],
             "Resource": "*",
             "Condition": {
                 "StringLike": {
@@ -81,18 +92,22 @@ def generate_cloudtrail_kms_policy(
         })
     
     # Allow CloudTrail to describe key
-    statements.append({
+    policy_statements.append({
         "Sid": "Allow CloudTrail to describe key",
         "Effect": "Allow",
         "Principal": {
             "Service": "cloudtrail.amazonaws.com"
         },
-        "Action": "kms:DescribeKey",
+		"Action": [
+				"kms:DescribeKey",
+				"kms:GetKeyPolicy",
+				"kms:GetKeyRotationStatus"
+			],
         "Resource": "*"
     })
     
-    # Allow principals in admin account to decrypt log files
-    statements.append({
+    # Allow principals in the admin account to decrypt log files
+    policy_statements.append({
         "Sid": "Allow principals in the account to decrypt log files",
         "Effect": "Allow",
         "Principal": {
@@ -116,9 +131,9 @@ def generate_cloudtrail_kms_policy(
         }
     })
     
-    # Allow principals in member accounts to decrypt log files
+    # Allow principals in each member account to decrypt log files
     for account_id in member_account_ids:
-        statements.append({
+        policy_statements.append({
             "Sid": f"Allow principals in the account to decrypt log files {account_id}",
             "Effect": "Allow",
             "Principal": {
@@ -143,7 +158,7 @@ def generate_cloudtrail_kms_policy(
         })
     
     # Allow alias creation during setup for admin account
-    statements.append({
+    policy_statements.append({
         "Sid": "Allow alias creation during setup",
         "Effect": "Allow",
         "Principal": {
@@ -159,9 +174,9 @@ def generate_cloudtrail_kms_policy(
         }
     })
     
-    # Allow alias creation during setup for member accounts
+    # Allow alias creation during setup for each member account
     for account_id in member_account_ids:
-        statements.append({
+        policy_statements.append({
             "Sid": f"Allow alias creation during setup {account_id}",
             "Effect": "Allow",
             "Principal": {
@@ -177,9 +192,9 @@ def generate_cloudtrail_kms_policy(
             }
         })
     
-    # Enable cross account log decryption for member accounts
+    # Enable cross account log decryption for each member account
     for account_id in member_account_ids:
-        statements.append({
+        policy_statements.append({
             "Sid": f"Enable cross account log decryption {account_id}",
             "Effect": "Allow",
             "Principal": {
@@ -200,10 +215,10 @@ def generate_cloudtrail_kms_policy(
             }
         })
     
-    # Return the complete policy document
-    policy_document = {
+    return {
         "Version": "2012-10-17",
-        "Statement": statements
+        "Statement": policy_statements
     }
-    
-    return policy_document
+
+
+
