@@ -68,13 +68,20 @@ if __name__ == "__main__":
     s3_bucket_owner = None
     
     # Find which account owns the S3 bucket
-    for member in member_accounts:
+    membership = []
+    membership = member_accounts
+    membership.append(master_account)
+    for member in membership:
+        print(f"Checking S3 bucket in member account: {member}")
         session = boto3.Session(profile_name=str(member))
         s3_client = session.client('s3', region_name=details['HomeRegion'])
         try:
+            print(f"Listing S3 buckets in account {member}...")
             response = s3_client.list_buckets()
             for bucket in response['Buckets']:
                 if bucket['Name'] == details['S3BucketName']:
+                    print(f"Found S3 bucket {bucket['Name']} in account {member}")
+                    print("Fount the S3 bucket in member account:", member)
                     s3_bucket_owner = member
                     print(f"Found S3 bucket {details['S3BucketName']} in account {member}")
                     
