@@ -25,7 +25,7 @@ Use an [organization trail](https://docs.aws.amazon.com/awscloudtrail/latest/use
 
 ## Prerequisites
 
-Before you begin, ensure you have the following prerequisites in place:
+Before you begin, ensure you have the following prerequisites in place. If you run the accelerator in [AWS CloudShell](#in-aws-cloudshell), items 1 to 3 are already taken care of, and only 4 and 5 apply.
 
 1. **Python**:
 
@@ -39,6 +39,7 @@ Before you begin, ensure you have the following prerequisites in place:
    - Ensure that you have an AWS CLI profile on your machine for an **administrator identity in the organization's management account**, for example the `AdministratorAccess` permission set of IAM Identity Center. The script uses this one profile for everything; you don't need a profile per account.
    - Do not use the root user: AWS doesn't let the root user assume roles, which the script needs.
    - With IAM Identity Center, your `~/.aws/config` should look like this:
+
      ```ini
      [profile org-management-admin]
      sso_session = my-sso
@@ -52,6 +53,7 @@ Before you begin, ensure you have the following prerequisites in place:
      sso_registration_scopes = sso:account:access
      ```
    - Log in and confirm that the profile belongs to the management account:
+
      ```sh
      aws sso login --profile org-management-admin
      aws sts get-caller-identity --profile org-management-admin --query Account
@@ -74,6 +76,8 @@ Before you begin, ensure you have the following prerequisites in place:
 
 ## Installation
 
+These steps are for your own machine. In AWS CloudShell, follow [In AWS CloudShell](#in-aws-cloudshell) instead.
+
 1. Clone the repository:
    ```sh
    git clone https://github.com/CloudKeeper-Inc/CloudKeeper-Billing-Transfer-Accelerators.git
@@ -85,6 +89,12 @@ Before you begin, ensure you have the following prerequisites in place:
    ```
 
 ## Usage
+
+You can run the accelerator from your own terminal or in AWS CloudShell in the management account. The commands and options are the same in both; in CloudShell, you leave out `--profile`.
+
+Either way, keep the JSON report the run writes. It records the result of every account, the bucket and trail names, and the run's timings.
+
+### From Your Terminal
 
 1. **Run the pre-flight checks (read-only):**
 
@@ -110,7 +120,59 @@ Before you begin, ensure you have the following prerequisites in place:
 
    A run takes a few minutes. In an organization of 29 accounts, it took about 5.5 minutes, and logs from every account were in the bucket within 10 minutes of the start.
 
-Keep the JSON report the run writes. It records the result of every account, the bucket and trail names, and the run's timings.
+### In AWS CloudShell
+
+[AWS CloudShell](https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html) is a shell in your browser, inside the AWS console. It already has Python 3, `pip`, `boto3`, `git` and the AWS CLI, and it uses the credentials of the identity you signed in to the console with. You don't install anything on your machine or configure a profile.
+
+1. **Sign in to the AWS console of the management account** with an administrator identity, for example the `AdministratorAccess` permission set of IAM Identity Center. Don't use the root user: AWS doesn't let the root user assume roles, which the script needs.
+2. **Open CloudShell:** choose the **CloudShell** icon in the console's navigation bar, or type `CloudShell` in the search box. Wait for the command prompt.
+
+   The CloudShell region doesn't change where the accelerator works; `--region` (default `us-east-1`) does. Files you save in CloudShell are kept per region, so open CloudShell in the same region later to find your report.
+3. **Confirm that you are in the management account:**
+
+   ```sh
+   aws sts get-caller-identity --query Account --output text
+   aws organizations describe-organization --query Organization.MasterAccountId --output text
+   ```
+
+   The two account IDs must match.
+4. **Get the accelerator and install its dependencies:**
+
+   ```sh
+   git clone https://github.com/CloudKeeper-Inc/CloudKeeper-Billing-Transfer-Accelerators.git
+   cd CloudKeeper-Billing-Transfer-Accelerators/AWS-CloudTrail
+   pip3 install --user -r requirements.txt
+   ```
+
+   This makes sure `boto3` is 1.29 or newer. Everything is stored in your CloudShell home directory, which is kept between sessions.
+5. **Run the pre-flight checks (read-only):**
+
+   ```sh
+   python3 cloudtrail_accelerator.py --check
+   ```
+
+   Fix every `BLOCK` line. `WARN` lines show accounts that will fail on their own, for example because of an SCP.
+6. **Review the plan (read-only):**
+
+   ```sh
+   python3 cloudtrail_accelerator.py --dry-run
+   ```
+7. **Run the accelerator:**
+
+   ```sh
+   python3 cloudtrail_accelerator.py
+   ```
+
+   All other options, such as `--log-account-id`, `--bucket` and `--trail-name`, work as in a terminal.
+
+   **Keep the CloudShell window active until the run finishes.** CloudShell ends a session after 20 to 30 minutes without keyboard or pointer input (10 minutes in AWS GovCloud (US) Regions), and a running script doesn't count as input. A run usually takes a few minutes, but for a large organization, move the pointer or click inside the CloudShell window every few minutes. Avoid typing while the script runs. If the session ends during a run, see [Troubleshooting](#troubleshooting).
+8. **Download the report (optional):** the report is written to `~/CloudKeeper-Billing-Transfer-Accelerators/AWS-CloudTrail/`. Find its name with `ls cloudtrail-accelerator-*.json`. Then choose **Actions > Download file** and enter:
+
+   ```text
+   CloudKeeper-Billing-Transfer-Accelerators/AWS-CloudTrail/cloudtrail-accelerator-<run-id>.json
+   ```
+
+   If **Download file** isn't available, open CloudShell in its own browser tab and try again.
 
 ### Modes
 
@@ -123,22 +185,22 @@ Keep the JSON report the run writes. It records the result of every account, the
 
 ### Parameters
 
-| Option                          | Default                                                          | Description                                                                                                                                                                                                                                     |
-| ------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--profile PROFILE`           | standard AWS credential chain                                    | AWS CLI profile of an administrator identity in the management account. Without it, boto3's usual chain applies: environment variables, `AWS_PROFILE`, the `default` profile, then an instance or task role.                                |
-| `--log-account-id ACCOUNT_ID` | management account                                               | Account that owns the central bucket: the management account or any `ACTIVE` member account.                                                                                                                                                  |
-| `--region REGION`             | `us-east-1`                                                    | Home region of the bucket, every trail and the temporary StackSet. Use a region that is enabled in every account.                                                                                                                               |
-| `--bucket NAME`               | `cloudkeeper-cloudtrail-accelerator-<log-account-id>-<region>` | Name of the central bucket. Must be a valid S3 bucket name not owned by another AWS account. An existing bucket with this name in the management account (or log account) is reused as it is.                                                   |
-| `--trail-name NAME`           | `cloudkeeper-cloudtrail-accelerator`                           | Name of the trail, the same in every account: 3 to 128 letters, digits, `.`, `_` or `-`, starting and ending with a letter or digit, no two symbols in a row. A trail with this name that the accelerator didn't create is never changed. |
-| `--workers N`                 | `20`                                                           | Accounts configured in parallel (1 to 100). Lower it if you see throttling.                                                                                                                                                                     |
-| `--timeout-minutes N`         | `60`                                                           | Maximum wait for the StackSet rollout and for its deletion (5 to 720). Raise it for very large organizations.                                                                                                                                   |
-| `--report PATH`               | `cloudtrail-accelerator-<run-id>.json`                         | Where to write the JSON report.                                                                                                                                                                                                                 |
-| `--debug`                     | off                                                              | Logs every AWS API call (operation and parameters, never credentials) and SDK retry, and prints full tracebacks.                                                                                                                                |
-| `--check`                     | off                                                              | Read-only pre-flight checks.                                                                                                                                                                                                                    |
-| `--dry-run`                   | off                                                              | Read-only plan.                                                                                                                                                                                                                                 |
-| `--cleanup`                   | off                                                              | Deletes StackSets that an interrupted run left behind in `--region`. Can't be combined with `--check` or `--dry-run`.                                                                                                                     |
-| `--version`                   |                                                                  | Prints the version.                                                                                                                                                                                                                             |
-| `-h`, `--help`              |                                                                  | Prints usage.                                                                                                                                                                                                                                   |
+| Option                          | Default                                                          | Description                                                                                                                                                                                                                                                                                   |
+| ------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--profile PROFILE`           | standard AWS credential chain                                    | AWS CLI profile of an administrator identity in the management account. Without it, boto3's usual chain applies: environment variables, `AWS_PROFILE`, the `default` profile, then an instance or task role. In AWS CloudShell, leave it out: the console session's credentials are used. |
+| `--log-account-id ACCOUNT_ID` | management account                                               | Account that owns the central bucket: the management account or any `ACTIVE` member account.                                                                                                                                                                                                |
+| `--region REGION`             | `us-east-1`                                                    | Home region of the bucket, every trail and the temporary StackSet. Use a region that is enabled in every account.                                                                                                                                                                             |
+| `--bucket NAME`               | `cloudkeeper-cloudtrail-accelerator-<log-account-id>-<region>` | Name of the central bucket. Must be a valid S3 bucket name not owned by another AWS account. An existing bucket with this name in the management account (or log account) is reused as it is.                                                                                                 |
+| `--trail-name NAME`           | `cloudkeeper-cloudtrail-accelerator`                           | Name of the trail, the same in every account: 3 to 128 letters, digits, `.`, `_` or `-`, starting and ending with a letter or digit, no two symbols in a row. A trail with this name that the accelerator didn't create is never changed.                                               |
+| `--workers N`                 | `20`                                                           | Accounts configured in parallel (1 to 100). Lower it if you see throttling.                                                                                                                                                                                                                   |
+| `--timeout-minutes N`         | `60`                                                           | Maximum wait for the StackSet rollout and for its deletion (5 to 720). Raise it for very large organizations.                                                                                                                                                                                 |
+| `--report PATH`               | `cloudtrail-accelerator-<run-id>.json`                         | Where to write the JSON report.                                                                                                                                                                                                                                                               |
+| `--debug`                     | off                                                              | Logs every AWS API call (operation and parameters, never credentials) and SDK retry, and prints full tracebacks.                                                                                                                                                                              |
+| `--check`                     | off                                                              | Read-only pre-flight checks.                                                                                                                                                                                                                                                                  |
+| `--dry-run`                   | off                                                              | Read-only plan.                                                                                                                                                                                                                                                                               |
+| `--cleanup`                   | off                                                              | Deletes StackSets that an interrupted run left behind in `--region`. Can't be combined with `--check` or `--dry-run`.                                                                                                                                                                   |
+| `--version`                   |                                                                  | Prints the version.                                                                                                                                                                                                                                                                           |
+| `-h`, `--help`              |                                                                  | Prints usage.                                                                                                                                                                                                                                                                                 |
 
 ### Exit Codes
 
@@ -182,14 +244,14 @@ When the bucket is in a member account, it is created through that account's tem
 
 By default, every resource the accelerator creates has `accelerator` in its name. The bucket and trail names can be changed with `--bucket` and `--trail-name`; the StackSet and role names can't.
 
-| Resource                                                                            | Name                                                                         | Where                               | Lifetime                                |
-| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------- | --------------------------------------- |
-| S3 bucket                                                                           | `cloudkeeper-cloudtrail-accelerator-<log-account-id>-<region>`             | Management account (or log account) | Permanent                               |
-| Bucket policy statements                                                            | `AWSCloudTrailAclCheck`, `AWSCloudTrailWrite`, `DenyInsecureTransport` | Management account (or log account) | Permanent                               |
-| CloudTrail trail                                                                    | `cloudkeeper-cloudtrail-accelerator`                                       | Every active account                | Permanent                               |
-| CloudFormation StackSet                                                             | `cloudkeeper-cloudtrail-accelerator-<run-id>`                              | Management account                  | **Deleted at the end of the run** |
-| IAM role (in a stack `StackSet-cloudkeeper-cloudtrail-accelerator-<run-id>-<id>`) | `cloudkeeper-cloudtrail-accelerator-<run-id>`                              | Every active member account         | **Deleted at the end of the run** |
-| JSON report                                                                         | `cloudtrail-accelerator-<run-id>.json`                                     | Your machine                        | Yours to keep                           |
+| Resource                                                                            | Name                                                                         | Where                                           | Lifetime                                |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------- | --------------------------------------- |
+| S3 bucket                                                                           | `cloudkeeper-cloudtrail-accelerator-<log-account-id>-<region>`             | Management account (or log account)             | Permanent                               |
+| Bucket policy statements                                                            | `AWSCloudTrailAclCheck`, `AWSCloudTrailWrite`, `DenyInsecureTransport` | Management account (or log account)             | Permanent                               |
+| CloudTrail trail                                                                    | `cloudkeeper-cloudtrail-accelerator`                                       | Every active account                            | Permanent                               |
+| CloudFormation StackSet                                                             | `cloudkeeper-cloudtrail-accelerator-<run-id>`                              | Management account                              | **Deleted at the end of the run** |
+| IAM role (in a stack `StackSet-cloudkeeper-cloudtrail-accelerator-<run-id>-<id>`) | `cloudkeeper-cloudtrail-accelerator-<run-id>`                              | Every active member account                     | **Deleted at the end of the run** |
+| JSON report                                                                         | `cloudtrail-accelerator-<run-id>.json`                                     | Your machine, or your CloudShell home directory | Yours to keep                           |
 
 `<run-id>` is the UTC start time, `YYYYMMDDHHMMSS`. Trails and buckets are also tagged `CreatedBy=cloudkeeper-cloudtrail-accelerator`.
 
@@ -213,6 +275,14 @@ By default, every resource the accelerator creates has `accelerator` in its name
 - **An account fails with `AccessDeniedException` or `RoleNotReady`:** An SCP blocks CloudFormation, IAM or CloudTrail in that account. Run `--check` to see which one. After fixing it, run the accelerator again: it is safe to run again, and existing accelerator trails are updated in place.
 - **`TrailNotManaged`:** The account already has a trail with the same name that the accelerator didn't create. It is left alone; choose another `--trail-name`.
 - **A StackSet was left behind after an interrupted run:** Run the accelerator with `--cleanup`.
+- **The CloudShell session ended during a run:** The script stopped with it, so its StackSet and temporary roles may still exist. Open CloudShell again, then run:
+  ```sh
+  cd ~/CloudKeeper-Billing-Transfer-Accelerators/AWS-CloudTrail
+  python3 cloudtrail_accelerator.py --cleanup
+  python3 cloudtrail_accelerator.py
+  ```
+
+  The second command finishes the setup. It reuses the bucket and updates the trails that were already created.
 
 [docs/troubleshooting.md](docs/troubleshooting.md) lists every error and warning with its fix, and explains debugging.
 
