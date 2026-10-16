@@ -1,7 +1,18 @@
-/*/*/.terraform*
-/*/*.json
-/*/*/*.d
-/*/*/*.tfvars
-/AWS-Cloudtrail/*/cloudtrail.tf
-/AWS-Cloudtrail/*/main.tf
-/*/__pycache__/
+# Defunct Terraform accelerators (moved under tf-defunct/)
+/tf-defunct/*/*/.terraform*
+/tf-defunct/*/*.json
+/tf-defunct/*/*/*.d
+/tf-defunct/*/*/*.tfvars
+/tf-defunct/AWS-Cloudtrail/*/cloudtrail.tf
+/tf-defunct/AWS-Cloudtrail/*/main.tf
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Accelerator reports (contain account IDs)
+cloudtrail-accelerator-*.json
+
+# Tests (kept local, not published)
+/AWS-CloudTrail/tests/
